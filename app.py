@@ -1,5 +1,6 @@
 from flask import Flask, request, send_file
 import subprocess, tempfile
+import os
 
 app = Flask(__name__)
 
@@ -49,4 +50,5 @@ def filter_image():
     return send_file(out.name, mimetype="image/jpeg")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
