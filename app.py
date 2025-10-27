@@ -1,7 +1,5 @@
 from flask import Flask, request, send_file
-import subprocess, tempfile
-import os
-import requests
+import subprocess, tempfile, os, requests
 
 app = Flask(__name__)
 
@@ -40,8 +38,8 @@ def filter_image():
         if r.status_code != 200:
             return {"error": f"Failed to download image, status {r.status_code}"}, 400
         with open(inp.name, 'wb') as f_out:
-        for chunk in r.iter_content(chunk_size=8192):
-        f_out.write(chunk)
+            for chunk in r.iter_content(chunk_size=8192):
+                f_out.write(chunk)
 
         if style == "grey":
             subprocess.run(["magick", inp.name, "-colorspace", "Gray", out.name], check=True)
