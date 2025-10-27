@@ -3,4 +3,5 @@ RUN apt-get update && apt-get install -y imagemagick && rm -rf /var/lib/apt/list
 WORKDIR /app
 COPY . .
 RUN pip install flask
+ENV PORT=10000
 CMD ["python", "app.py"]
