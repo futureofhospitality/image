@@ -29,23 +29,23 @@ def filter_image():
     out  = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
 
     # Download image
-    subprocess.run(["curl", "-s", "-o", inp.name, url])
+    subprocess.run(["curl", "-L", "-o", inp.name, url], check=True)
 
     if style == "grey":
-        subprocess.run(["magick", inp.name, "-colorspace", "Gray", out.name])
+        subprocess.run(["magick", inp.name, "-colorspace", "Gray", out.name], check=True)
     else:
         # Step 1: grayscale + colorize
         subprocess.run([
             "magick", inp.name, "-colorspace", "Gray",
             "-fill", f["color"], "-colorize", f["strength"], tmp.name
-        ])
+        ], check=True)
         # Step 2: overlay same image
         subprocess.run([
             "magick", tmp.name, inp.name,
             "-compose", f["mode"],
             "-define", f"compose:args={f['opacity']},100",
             "-composite", out.name
-        ])
+        ], check=True)
 
     return send_file(out.name, mimetype="image/jpeg")
 
