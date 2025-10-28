@@ -67,6 +67,40 @@ def filter_image():
         print(f"❌ General error: {e}")
         return {"error": str(e)}, 500
 
+@app.route("/frame", methods=["POST"])
+def extract_frame():
+    """
+    Extract a frame from a video URL using FFmpeg.
+    Example payload:
+    { "video_url": "https://vz-xxx.b-cdn.net/video.mp4", "timestamp": 2089 }
+    """
+    try:
+        data = request.get_json()
+        video_url = data.get("video_url")
+        timestamp = float(data.get("timestamp", 0))
+
+        if not video_url:
+            return {"error": "Missing video_url"}, 400
+
+        # Maak tijdelijke bestanden
+        tmp_frame = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+
+        # Run FFmpeg (1 frame op opgegeven tijd)
+        subprocess.run([
+            "ffmpeg", "-ss", str(timestamp), "-i", video_url,
+            "-vframes", "1", "-q:v", "2", tmp_frame.name
+        ], check=True)
+
+        print(f"✅ Frame extracted at {timestamp}s from {video_url}")
+        return send_file(tmp_frame.name, mimetype="image/jpeg")
+
+    except subprocess.CalledProcessError as e:
+        print(f"❌ FFmpeg failed: {e}")
+        return {"error": f"FFmpeg failed: {str(e)}"}, 500
+    except Exception as e:
+        print(f"❌ General error: {e}")
+        return {"error": str(e)}, 500
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
