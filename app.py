@@ -23,7 +23,7 @@ def filter_image():
         inp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
         out = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
 
-        # Download image via Python
+        # Download image
         print(f"Downloading from: {url}")
         r = requests.get(url, stream=True)
         if r.status_code != 200:
@@ -42,13 +42,25 @@ def filter_image():
         elif style == "grey":
             highlight, shadow, intensity = "#eeeeee", "#111111", "100"
 
-        # 🪄 True duotone effect in ImageMagick
+        # ✅ Proper duotone formula:
+        # - Convert to grayscale
+        # - Map black -> shadow color
+        # - Map white -> highlight color
+        # - Blend based on luminance
         subprocess.run([
-            "magick", inp.name, "-colorspace", "Gray",
-            "(", "-clone", "0", "-fill", shadow, "-colorize", "100", ")",
-            "(", "-clone", "0", "-fill", highlight, "-colorize", "100", ")",
-            "-compose", "blend", "-define", f"compose:args={intensity},100",
-            "-composite", "-set", "colorspace", "sRGB", out.name
+            "magick", inp.name,
+            "-colorspace", "Gray",
+            f"(",
+            "+clone", "-fill", shadow, "-colorize", "100",
+            ")",
+            f"(",
+            "+clone", "-fill", highlight, "-colorize", "100",
+            ")",
+            "-compose", "blend",
+            "-define", f"compose:args={intensity},100",
+            "-composite",
+            "-set", "colorspace", "sRGB",
+            out.name
         ], check=True)
 
         print(f"✅ Duotone ({style}) applied successfully")
@@ -64,11 +76,7 @@ def filter_image():
 
 @app.route("/frame", methods=["POST"])
 def extract_frame():
-    """
-    Extract a frame from a video URL using FFmpeg.
-    Example payload:
-    { "video_url": "https://vz-xxx.b-cdn.net/video.mp4", "timestamp": 2089 }
-    """
+    """Extract a frame from a video URL using FFmpeg."""
     try:
         data = request.get_json()
         video_url = data.get("video_url")
@@ -79,7 +87,6 @@ def extract_frame():
 
         tmp_frame = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
 
-        # ✅ Run FFmpeg (1 frame at specific timestamp)
         subprocess.run([
             "ffmpeg", "-y", "-ss", str(timestamp), "-i", video_url,
             "-vframes", "1", "-q:v", "2", tmp_frame.name
