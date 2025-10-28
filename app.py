@@ -92,7 +92,12 @@ def extract_frame():
         ], check=True)
 
         print(f"✅ Frame extracted at {timestamp}s from {video_url}")
-        return send_file(tmp_frame.name, mimetype="image/jpeg")
+        return send_file(
+    tmp_frame.name,
+    mimetype="image/jpeg",
+    as_attachment=True,
+    download_name="frame.jpg"
+)
 
     except subprocess.CalledProcessError as e:
         print(f"❌ FFmpeg failed: {e}")
