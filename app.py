@@ -49,10 +49,15 @@ def filter_image():
             "magick", inp.name, "-modulate", "100,0", gray.name
         ], check=True)
 
-        # Step 2: Apply duotone gradient CLUT
+        # ✅ Step 2: Proper duotone gradient mapping (CLUT)
         subprocess.run([
-            "magick", gray.name, "-size", "256x1", f"gradient:{shadow}-{highlight}",
-            "-clut", color.name
+            "magick", gray.name,
+            "(",
+                "-size", "256x1",
+                f"gradient:{shadow}-{highlight}",
+            ")",
+            "-clut",
+            color.name
         ], check=True)
 
         # Step 3: Blend if intensity < 1
@@ -60,11 +65,10 @@ def filter_image():
             subprocess.run([
                 "magick", gray.name, color.name,
                 "-compose", "blend",
-                "-define", f"compose:args={int((1 - intensity) * 100)},{int(intensity * 100)}",
+                "-define", f"compose:args={int(intensity * 100)}",
                 "-composite", out.name
             ], check=True)
         else:
-            # Full duotone
             subprocess.run(["magick", color.name, out.name], check=True)
 
         print(f"✅ Duotone ({style}) applied successfully")
@@ -108,7 +112,7 @@ def extract_frame():
         print(f"❌ FFmpeg failed: {e}")
         return {"error": f"FFmpeg failed: {str(e)}"}, 500
     except Exception as e:
-        print(f"❌ General error: {e}" )
+        print(f"❌ General error: {e}")
         return {"error": str(e)}, 500
 
 
