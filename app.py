@@ -3,10 +3,17 @@ import subprocess, tempfile, os, requests
 
 app = Flask(__name__)
 
+# Filter definitions
+FILTERS = {
+    "dark":   {"color": "#707D88", "strength": "55%", "opacity": "66", "mode": "Multiply"},
+    "grey":   {"color": None,      "strength": None,  "opacity": None, "mode": None},
+    "red":    {"color": "#FF4076", "strength": "51%", "opacity": "62", "mode": "Multiply"},
+    "purple": {"color": "#935EB2", "strength": "57%", "opacity": "43", "mode": "Multiply"}
+}
+
 @app.route("/ping")
 def ping():
     return {"status": "ok"}
-
 
 @app.route("/filter", methods=["POST"])
 def filter_image():
@@ -17,56 +24,40 @@ def filter_image():
 
         if not url:
             return {"error": "Missing image_url"}, 400
-        if style not in ["red", "purple", "dark", "grey"]:
-            return {"error": f"Unknown style '{style}'. Must be one of ['red', 'purple', 'dark', 'grey']"}, 400
+        if style not in FILTERS:
+            return {"error": f"Unknown style '{style}'. Must be one of {list(FILTERS.keys())}"}, 400
 
-        inp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-        out = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        f = FILTERS[style]
+        inp  = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        tmp  = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        out  = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
 
-        # Download image
+        # Download image via Python instead of curl
         print(f"Downloading from: {url}")
         r = requests.get(url, stream=True)
         if r.status_code != 200:
             return {"error": f"Failed to download image, status {r.status_code}"}, 400
-        with open(inp.name, "wb") as f_out:
+        with open(inp.name, 'wb') as f_out:
             for chunk in r.iter_content(chunk_size=8192):
                 f_out.write(chunk)
 
-        # 🎨 Canva-style duotone color definitions
-        if style == "red":
-            highlight, shadow, intensity = "#ff4076", "#021f53", 0.75
-        elif style == "purple":
-            highlight, shadow, intensity = "#935eb2", "#242659", 0.75
-        elif style == "dark":
-            highlight, shadow, intensity = "#939ba9", "#041f23", 1.0
-        elif style == "grey":
-            highlight, shadow, intensity = "#eeeeee", "#111111", 1.0
+        if style == "grey":
+            subprocess.run(["magick", inp.name, "-colorspace", "Gray", out.name], check=True)
+        else:
+            # Step 1: grayscale + colorize
+            subprocess.run([
+                "magick", inp.name, "-colorspace", "Gray",
+                "-fill", f["color"], "-colorize", f["strength"], tmp.name
+            ], check=True)
+            # Step 2: overlay same image
+            subprocess.run([
+                "magick", tmp.name, inp.name,
+                "-compose", f["mode"],
+                "-define", f"compose:args={f['opacity']},100",
+                "-composite", out.name
+            ], check=True)
 
-        # ✅ True duotone approach
-        # 1. Normalize to grayscale luminance
-        # 2. Overlay shadow + highlight colors
-        # 3. Blend via luminosity mapping for rich duotone tones
-
-        subprocess.run([
-            "magick", inp.name,
-            "-alpha", "off",
-            "-colorspace", "sRGB",
-            "-modulate", "100,0,100",  # desaturate, keep brightness
-            "(",
-                "+clone", "-fill", shadow, "-colorize", "100",
-            ")",
-            "(",
-                "+clone", "-fill", highlight, "-colorize", "100",
-            ")",
-            "-compose", "blend",
-            "-define", f"compose:args={int(intensity * 100)},100",
-            "-composite",
-            "-contrast-stretch", "0x5%",   # adds subtle pop like Canva
-            "-set", "colorspace", "sRGB",
-            out.name
-        ], check=True)
-
-        print(f"✅ Duotone ({style}) applied successfully")
+        print("✅ Image processing done, returning file")
         return send_file(out.name, mimetype="image/jpeg")
 
     except subprocess.CalledProcessError as e:
@@ -76,18 +67,25 @@ def filter_image():
         print(f"❌ General error: {e}")
         return {"error": str(e)}, 500
 
-
 @app.route("/frame", methods=["POST"])
 def extract_frame():
-    """Extract a frame from a video URL using FFmpeg."""
+    """
+    Extract a frame from a video URL using FFmpeg.
+    Example payload:
+    { "video_url": "https://vz-xxx.b-cdn.net/video.mp4", "timestamp": 2089 }
+    """
     try:
         data = request.get_json()
         video_url = data.get("video_url")
         timestamp = float(data.get("timestamp", 0))
+
         if not video_url:
             return {"error": "Missing video_url"}, 400
 
+        # Maak tijdelijke bestanden
         tmp_frame = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+
+        # ✅ Run FFmpeg (1 frame op opgegeven tijd) met overwrite
         subprocess.run([
             "ffmpeg", "-y", "-ss", str(timestamp), "-i", video_url,
             "-vframes", "1", "-q:v", "2", tmp_frame.name
@@ -107,7 +105,6 @@ def extract_frame():
     except Exception as e:
         print(f"❌ General error: {e}")
         return {"error": str(e)}, 500
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
