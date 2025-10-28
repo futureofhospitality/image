@@ -21,6 +21,8 @@ def filter_image():
             return {"error": f"Unknown style '{style}'. Must be one of ['red', 'purple', 'dark', 'grey']"}, 400
 
         inp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        gray = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        color = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
         out = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
 
         # Download image
@@ -42,23 +44,28 @@ def filter_image():
         elif style == "grey":
             highlight, shadow, intensity = "#eeeeee", "#111111", 1.0
 
-        # ✅ Proper duotone using gradient CLUT mapping
+        # Step 1: Convert to grayscale
+        subprocess.run([
+            "magick", inp.name, "-modulate", "100,0", gray.name
+        ], check=True)
+
+        # Step 2: Apply duotone gradient CLUT
+        subprocess.run([
+            "magick", gray.name, "-size", "256x1", f"gradient:{shadow}-{highlight}",
+            "-clut", color.name
+        ], check=True)
+
+        # Step 3: Blend if intensity < 1
         if intensity < 1.0:
             subprocess.run([
-                "magick", inp.name,
-                "-modulate", "100,0", "-write", "mpr:gray", "+delete",
-                "mpr:gray", "-size", "256x1", f"gradient:{shadow}-{highlight}", "-clut", "mpr:color", "+delete",
-                "mpr:gray", "mpr:color", "-compose", "blend",
+                "magick", gray.name, color.name,
+                "-compose", "blend",
                 "-define", f"compose:args={int((1 - intensity) * 100)},{int(intensity * 100)}",
                 "-composite", out.name
             ], check=True)
         else:
-            subprocess.run([
-                "magick", inp.name,
-                "-modulate", "100,0",
-                "-size", "256x1", f"gradient:{shadow}-{highlight}", "-clut",
-                out.name
-            ], check=True)
+            # Full duotone
+            subprocess.run(["magick", color.name, out.name], check=True)
 
         print(f"✅ Duotone ({style}) applied successfully")
         return send_file(out.name, mimetype="image/jpeg")
