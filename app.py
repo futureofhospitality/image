@@ -7,6 +7,7 @@ app = Flask(__name__)
 def ping():
     return {"status": "ok"}
 
+
 @app.route("/filter", methods=["POST"])
 def filter_image():
     try:
@@ -20,10 +21,9 @@ def filter_image():
             return {"error": f"Unknown style '{style}'. Must be one of ['red', 'purple', 'dark', 'grey']"}, 400
 
         inp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-        gray = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
         out = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
 
-        # Download the image
+        # Download image
         print(f"Downloading from: {url}")
         r = requests.get(url, stream=True)
         if r.status_code != 200:
@@ -32,7 +32,7 @@ def filter_image():
             for chunk in r.iter_content(chunk_size=8192):
                 f_out.write(chunk)
 
-        # 🎨 Define Canva-style duotones
+        # 🎨 Canva-style duotone color definitions
         if style == "red":
             highlight, shadow, intensity = "#ff4076", "#021f53", 0.75
         elif style == "purple":
@@ -42,23 +42,27 @@ def filter_image():
         elif style == "grey":
             highlight, shadow, intensity = "#eeeeee", "#111111", 1.0
 
-        # Step 1: Convert to grayscale (no alpha, consistent color space)
+        # ✅ True duotone approach
+        # 1. Normalize to grayscale luminance
+        # 2. Overlay shadow + highlight colors
+        # 3. Blend via luminosity mapping for rich duotone tones
+
         subprocess.run([
             "magick", inp.name,
             "-alpha", "off",
             "-colorspace", "sRGB",
-            "-modulate", "100,0",
-            gray.name
-        ], check=True)
-
-        # Step 2: Create duotone without using gradient/clut (always works)
-        subprocess.run([
-            "magick", gray.name,
-            "(", gray.name, "-fill", shadow, "-colorize", "100", ")",
-            "(", gray.name, "-fill", highlight, "-colorize", "100", ")",
+            "-modulate", "100,0,100",  # desaturate, keep brightness
+            "(",
+                "+clone", "-fill", shadow, "-colorize", "100",
+            ")",
+            "(",
+                "+clone", "-fill", highlight, "-colorize", "100",
+            ")",
             "-compose", "blend",
-            "-define", f"compose:args={int(intensity * 100)}",
+            "-define", f"compose:args={int(intensity * 100)},100",
             "-composite",
+            "-contrast-stretch", "0x5%",   # adds subtle pop like Canva
+            "-set", "colorspace", "sRGB",
             out.name
         ], check=True)
 
@@ -96,6 +100,7 @@ def extract_frame():
             as_attachment=True,
             download_name="frame.jpg"
         )
+
     except subprocess.CalledProcessError as e:
         print(f"❌ FFmpeg failed: {e}")
         return {"error": f"FFmpeg failed: {str(e)}"}, 500
