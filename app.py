@@ -19,20 +19,20 @@ def filter_image():
         if style not in ["red", "purple", "dark", "grey"]:
             return {"error": f"Unknown style '{style}'. Must be one of ['red', 'purple', 'dark', 'grey']"}, 400
 
-        inp   = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-        gray  = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-        color = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-        out   = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        inp = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        gray = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        out = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
 
-        # Download source
+        # Download the image
+        print(f"Downloading from: {url}")
         r = requests.get(url, stream=True)
         if r.status_code != 200:
             return {"error": f"Failed to download image, status {r.status_code}"}, 400
-        with open(inp.name, 'wb') as f_out:
+        with open(inp.name, "wb") as f_out:
             for chunk in r.iter_content(chunk_size=8192):
                 f_out.write(chunk)
 
-        # Canva-style duotones
+        # 🎨 Define Canva-style duotones
         if style == "red":
             highlight, shadow, intensity = "#ff4076", "#021f53", 0.75
         elif style == "purple":
@@ -42,47 +42,40 @@ def filter_image():
         elif style == "grey":
             highlight, shadow, intensity = "#eeeeee", "#111111", 1.0
 
-        # 1) robust grayscale in sRGB, no alpha
+        # Step 1: Convert to grayscale (no alpha, consistent color space)
         subprocess.run([
             "magick", inp.name,
             "-alpha", "off",
             "-colorspace", "sRGB",
-            "-modulate", "100,0",              # luminance only
+            "-modulate", "100,0",
             gray.name
         ], check=True)
 
-        # 2) apply 2-color gradient as a CLUT  (parentheses are critical)
+        # Step 2: Create duotone without using gradient/clut (always works)
         subprocess.run([
             "magick", gray.name,
-            "(",
-                "-size", "256x1",
-                f"gradient:{shadow}-{highlight}",
-            ")",
-            "-clut",
-            color.name
+            "(", gray.name, "-fill", shadow, "-colorize", "100", ")",
+            "(", gray.name, "-fill", highlight, "-colorize", "100", ")",
+            "-compose", "blend",
+            "-define", f"compose:args={int(intensity * 100)}",
+            "-composite",
+            out.name
         ], check=True)
 
-        # 3) blend with original gray if intensity < 1 (weight applies to 2nd image = color)
-        if intensity < 1.0:
-            subprocess.run([
-                "magick", gray.name, color.name,
-                "-compose", "blend",
-                "-define", f"compose:args={int(intensity*100)}",
-                "-composite",
-                out.name
-            ], check=True)
-        else:
-            subprocess.run(["magick", color.name, out.name], check=True)
-
+        print(f"✅ Duotone ({style}) applied successfully")
         return send_file(out.name, mimetype="image/jpeg")
 
     except subprocess.CalledProcessError as e:
+        print(f"❌ Subprocess failed: {e}")
         return {"error": f"Subprocess failed: {str(e)}"}, 500
     except Exception as e:
+        print(f"❌ General error: {e}")
         return {"error": str(e)}, 500
+
 
 @app.route("/frame", methods=["POST"])
 def extract_frame():
+    """Extract a frame from a video URL using FFmpeg."""
     try:
         data = request.get_json()
         video_url = data.get("video_url")
@@ -96,12 +89,20 @@ def extract_frame():
             "-vframes", "1", "-q:v", "2", tmp_frame.name
         ], check=True)
 
-        return send_file(tmp_frame.name, mimetype="image/jpeg",
-                         as_attachment=True, download_name="frame.jpg")
+        print(f"✅ Frame extracted at {timestamp}s from {video_url}")
+        return send_file(
+            tmp_frame.name,
+            mimetype="image/jpeg",
+            as_attachment=True,
+            download_name="frame.jpg"
+        )
     except subprocess.CalledProcessError as e:
+        print(f"❌ FFmpeg failed: {e}")
         return {"error": f"FFmpeg failed: {str(e)}"}, 500
     except Exception as e:
+        print(f"❌ General error: {e}")
         return {"error": str(e)}, 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
