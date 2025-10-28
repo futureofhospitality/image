@@ -85,19 +85,19 @@ def extract_frame():
         # Maak tijdelijke bestanden
         tmp_frame = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
 
-        # Run FFmpeg (1 frame op opgegeven tijd)
+        # ✅ Run FFmpeg (1 frame op opgegeven tijd) met overwrite
         subprocess.run([
-            "ffmpeg", "-ss", str(timestamp), "-i", video_url,
+            "ffmpeg", "-y", "-ss", str(timestamp), "-i", video_url,
             "-vframes", "1", "-q:v", "2", tmp_frame.name
         ], check=True)
 
         print(f"✅ Frame extracted at {timestamp}s from {video_url}")
         return send_file(
-    tmp_frame.name,
-    mimetype="image/jpeg",
-    as_attachment=True,
-    download_name="frame.jpg"
-)
+            tmp_frame.name,
+            mimetype="image/jpeg",
+            as_attachment=True,
+            download_name="frame.jpg"
+        )
 
     except subprocess.CalledProcessError as e:
         print(f"❌ FFmpeg failed: {e}")
