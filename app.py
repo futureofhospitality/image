@@ -34,28 +34,31 @@ def filter_image():
 
         # 🎨 Canva-style duotone definitions
         if style == "red":
-            highlight, shadow, intensity = "#ff4076", "#021f53", "0.75"
+            highlight, shadow, intensity = "#ff4076", "#021f53", 0.75
         elif style == "purple":
-            highlight, shadow, intensity = "#935eb2", "#242659", "0.75"
+            highlight, shadow, intensity = "#935eb2", "#242659", 0.75
         elif style == "dark":
-            highlight, shadow, intensity = "#939ba9", "#041f23", "1.0"
+            highlight, shadow, intensity = "#939ba9", "#041f23", 1.0
         elif style == "grey":
-            highlight, shadow, intensity = "#eeeeee", "#111111", "1.0"
+            highlight, shadow, intensity = "#eeeeee", "#111111", 1.0
 
-        # ✅ True duotone via -fx blending formula
-        # Uses normalized luminance to mix shadow and highlight colors pixel by pixel
-        command = [
-            "magick", inp.name,
-            "-colorspace", "Gray",
-            f"-fill", shadow, "-colorize", "100",
-            f"(", inp.name, "-colorspace", "Gray",
-            "-fill", highlight, "-colorize", "100", ")",
-            "-compose", "blend", "-define", f"compose:args={float(intensity)*100},100",
-            "-composite",
-            out.name
-        ]
-        print("Running command:", " ".join(command))
-        subprocess.run(command, check=True)
+        # ✅ Proper duotone using gradient CLUT mapping
+        if intensity < 1.0:
+            subprocess.run([
+                "magick", inp.name,
+                "-modulate", "100,0", "-write", "mpr:gray", "+delete",
+                "mpr:gray", "-size", "256x1", f"gradient:{shadow}-{highlight}", "-clut", "mpr:color", "+delete",
+                "mpr:gray", "mpr:color", "-compose", "blend",
+                "-define", f"compose:args={int((1 - intensity) * 100)},{int(intensity * 100)}",
+                "-composite", out.name
+            ], check=True)
+        else:
+            subprocess.run([
+                "magick", inp.name,
+                "-modulate", "100,0",
+                "-size", "256x1", f"gradient:{shadow}-{highlight}", "-clut",
+                out.name
+            ], check=True)
 
         print(f"✅ Duotone ({style}) applied successfully")
         return send_file(out.name, mimetype="image/jpeg")
