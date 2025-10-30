@@ -57,6 +57,23 @@ def filter_image():
                 "-composite", out.name
             ], check=True)
 
+        # Step 3: overlay frame only for 'red'
+        if style == "red":
+            overlay_url = "https://fohpodcast.b-cdn.net/Website%20thumbnail/OverlayRed.png"
+            overlay_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            print(f"Downloading overlay from: {overlay_url}")
+            o = requests.get(overlay_url, stream=True)
+            if o.status_code == 200:
+                with open(overlay_tmp.name, 'wb') as f_overlay:
+                    for chunk in o.iter_content(chunk_size=8192):
+                        f_overlay.write(chunk)
+                subprocess.run([
+                    "magick", out.name, overlay_tmp.name,
+                    "-compose", "Over", "-composite", out.name
+                ], check=True)
+            else:
+                print(f"⚠️ Failed to download overlay: {o.status_code}")
+
         print("✅ Image processing done, returning file")
         return send_file(out.name, mimetype="image/jpeg")
 
