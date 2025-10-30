@@ -47,7 +47,7 @@ def filter_image():
             # Step 1: protect purple edge and grayscale + colorize
             subprocess.run([
                 "magick", inp.name,
-                "-fuzz", "10%", "-fill", "none", "-opaque", "#8b5fbf",   # protect purple
+                "-fuzz", "15%", "-fill", "none", "-opaque", "#393655",   # protect purple
                 "-colorspace", "Gray",
                 "-fill", f["color"], "-colorize", f["strength"],
                 tmp.name
