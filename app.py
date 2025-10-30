@@ -44,15 +44,11 @@ def filter_image():
         if style == "grey":
             subprocess.run(["magick", inp.name, "-colorspace", "Gray", out.name], check=True)
         else:
-            # Step 1: protect purple edge and grayscale + colorize
+            # Step 1: grayscale + colorize
             subprocess.run([
-                "magick", inp.name,
-                "-fuzz", "15%", "-fill", "none", "-opaque", "#393655",   # protect purple
-                "-colorspace", "Gray",
-                "-fill", f["color"], "-colorize", f["strength"],
-                tmp.name
+                "magick", inp.name, "-colorspace", "Gray",
+                "-fill", f["color"], "-colorize", f["strength"], tmp.name
             ], check=True)
-
             # Step 2: overlay same image
             subprocess.run([
                 "magick", tmp.name, inp.name,
