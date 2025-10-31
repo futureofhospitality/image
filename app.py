@@ -167,33 +167,39 @@ def typebot_demo():
 @app.route("/store-typebot", methods=["POST"])
 def store_typebot():
     """
-    Receives JSON from WordPress with transcript, guest, etc.
-    Returns a short Render URL to safely embed.
+    Accepts data from WordPress and directly returns iframe HTML.
+    No temporary storage needed.
     """
     data = request.get_json()
     if not data:
         return jsonify({"error": "Missing JSON body"}), 400
 
-    # Extract fields from body
+    # Extract fields
     transcript = data.get("transcript_url", "")
     guest = data.get("guest", "")
     guest_description = data.get("guest_description", "")
     forwho = data.get("forwho", "")
     chapters = data.get("chapters", "")
 
-    # Store safely in memory
-    uid = str(uuid.uuid4())[:8]
-    TEMP_URLS[uid] = {
-        "transcript": transcript,
-        "guest": guest,
-        "guest_description": guest_description,
-        "forwho": forwho,
-        "chapters": chapters
-    }
+    # Build the Typebot URL
+    base_url = "https://typebot.co/faq-8hhmccv"
+    query = requests.utils.requote_uri(
+        f"?guest={guest}&guest_description={guest_description}"
+        f"&forwho={forwho}&chapters={chapters}&transcript_url={transcript}"
+    )
+    iframe_url = f"{base_url}{query}"
 
-    short_url = f"https://image-wsrb.onrender.com/typebot-loader?id={uid}"
-    print(f"✅ Stored Typebot data for {uid}")
-    return jsonify({"short_url": short_url})
+    # Return short Render link that just loads this HTML directly
+    html = f"""
+    <html>
+      <head><title>Typebot Chat</title></head>
+      <body style="margin:0;padding:0;overflow:hidden;">
+        <iframe src="{iframe_url}" width="100%" height="100%" style="border:none;" allow="clipboard-read; clipboard-write"></iframe>
+      </body>
+    </html>
+    """
+    return html
+
 
 
 @app.route("/typebot-loader")
