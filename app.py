@@ -1,8 +1,11 @@
 from flask import Flask, request, send_file
 import subprocess, tempfile, os, requests
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, jsonify
 
 app = Flask(__name__)
+
+# Temporary storage (fine for demo — later can be Redis)
+TEMP_URLS = {}
 
 # Filter definitions
 FILTERS = {
@@ -160,20 +163,41 @@ def typebot_demo():
     """
     return render_template_string(html)
 
+@app.route("/store-typebot", methods=["POST"])
+def store_typebot():
+    """
+    Receives a JSON body like {"url": "<LONG_TYPEBOT_URL>"} and stores it temporarily.
+    Returns a short Render URL that you can safely embed.
+    """
+    data = request.get_json()
+    long_url = data.get("url")
+    if not long_url:
+        return jsonify({"error": "Missing 'url'"}), 400
+
+    uid = str(uuid.uuid4())[:8]
+    TEMP_URLS[uid] = long_url
+
+    short_url = f"https://image-wsrb.onrender.com/typebot-loader?id={uid}"
+    print(f"✅ Stored new Typebot URL for {uid}")
+    return jsonify({"short_url": short_url})
+
+
 @app.route("/typebot-loader")
 def typebot_loader():
-    # Get the long Typebot URL from query parameter
-    typebot_url = request.args.get("url")
+    """
+    Loads the Typebot iframe based on a short ID, keeping the URL tiny.
+    """
+    uid = request.args.get("id")
+    long_url = TEMP_URLS.get(uid)
 
-    if not typebot_url:
-        return "<p style='font-family:sans-serif;color:red;'>❌ Missing ?url= parameter.</p>", 400
+    if not long_url:
+        return "<p style='color:red;font-family:sans-serif;'>❌ Invalid or expired ID.</p>", 404
 
-    # Render the HTML page that loads the Typebot iframe
     html = f"""
     <html>
       <head><title>Typebot Loader</title></head>
       <body style="margin:0;padding:0;overflow:hidden;">
-        <iframe src="{typebot_url}" width="100%" height="100%" style="border:none;" allow="clipboard-read; clipboard-write"></iframe>
+        <iframe src="{long_url}" width="100%" height="100%" style="border:none;" allow="clipboard-read; clipboard-write"></iframe>
       </body>
     </html>
     """
