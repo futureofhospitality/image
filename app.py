@@ -1,5 +1,6 @@
 from flask import Flask, request, send_file
 import subprocess, tempfile, os, requests
+from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
@@ -122,6 +123,42 @@ def extract_frame():
     except Exception as e:
         print(f"❌ General error: {e}")
         return {"error": str(e)}, 500
+
+
+@app.route("/typebot-demo")
+def typebot_demo():
+    # Read query param (you can later fetch real data from a DB or WP API)
+    demo_id = request.args.get("id", "123")
+
+    # Temporary demo data (later replace with actual lookup logic)
+    if demo_id == "123":
+        guest = "John Doe"
+        guest_description = "Hotel Manager at Ocean View"
+        forwho = "Hoteliers"
+        chapters = "Welcome, Experience, Technology"
+        transcript = "This is a test transcript text that normally would be long."
+    else:
+        guest = "Unknown"
+        guest_description = ""
+        forwho = ""
+        chapters = ""
+        transcript = "Demo transcript fallback."
+
+    # Build Typebot URL
+    base_url = "https://typebot.co/faq-8hhmccv"
+    query = f"guest={guest}&guest_description={guest_description}&forwho={forwho}&chapters={chapters}&transcript_url={transcript}"
+    iframe_url = f"{base_url}?{query}"
+
+    # Render HTML with iframe
+    html = f"""
+    <html>
+      <head><title>Typebot Demo</title></head>
+      <body style="margin:0;padding:0;">
+        <iframe src="{iframe_url}" width="100%" height="600" style="border:none;" allow="clipboard-read; clipboard-write"></iframe>
+      </body>
+    </html>
+    """
+    return render_template_string(html)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
