@@ -160,6 +160,26 @@ def typebot_demo():
     """
     return render_template_string(html)
 
+@app.route("/typebot-loader")
+def typebot_loader():
+    # Get the long Typebot URL from query parameter
+    typebot_url = request.args.get("url")
+
+    if not typebot_url:
+        return "<p style='font-family:sans-serif;color:red;'>❌ Missing ?url= parameter.</p>", 400
+
+    # Render the HTML page that loads the Typebot iframe
+    html = f"""
+    <html>
+      <head><title>Typebot Loader</title></head>
+      <body style="margin:0;padding:0;overflow:hidden;">
+        <iframe src="{typebot_url}" width="100%" height="100%" style="border:none;" allow="clipboard-read; clipboard-write"></iframe>
+      </body>
+    </html>
+    """
+    return render_template_string(html)
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
