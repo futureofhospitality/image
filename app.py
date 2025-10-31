@@ -167,42 +167,62 @@ def typebot_demo():
 @app.route("/store-typebot", methods=["POST"])
 def store_typebot():
     """
-    Receives a JSON body like {"url": "<LONG_TYPEBOT_URL>"} and stores it temporarily.
-    Returns a short Render URL that you can safely embed.
+    Receives JSON from WordPress with transcript, guest, etc.
+    Returns a short Render URL to safely embed.
     """
     data = request.get_json()
-    long_url = data.get("url")
-    if not long_url:
-        return jsonify({"error": "Missing 'url'"}), 400
+    if not data:
+        return jsonify({"error": "Missing JSON body"}), 400
 
+    # Extract fields from body
+    transcript = data.get("transcript_url", "")
+    guest = data.get("guest", "")
+    guest_description = data.get("guest_description", "")
+    forwho = data.get("forwho", "")
+    chapters = data.get("chapters", "")
+
+    # Store safely in memory
     uid = str(uuid.uuid4())[:8]
-    TEMP_URLS[uid] = long_url
+    TEMP_URLS[uid] = {
+        "transcript": transcript,
+        "guest": guest,
+        "guest_description": guest_description,
+        "forwho": forwho,
+        "chapters": chapters
+    }
 
     short_url = f"https://image-wsrb.onrender.com/typebot-loader?id={uid}"
-    print(f"✅ Stored new Typebot URL for {uid}")
+    print(f"✅ Stored Typebot data for {uid}")
     return jsonify({"short_url": short_url})
 
 
 @app.route("/typebot-loader")
 def typebot_loader():
     """
-    Loads the Typebot iframe based on a short ID, keeping the URL tiny.
+    Safely rebuilds a lightweight Typebot URL from stored data.
     """
     uid = request.args.get("id")
-    long_url = TEMP_URLS.get(uid)
-
-    if not long_url:
+    if not uid or uid not in TEMP_URLS:
         return "<p style='color:red;font-family:sans-serif;'>❌ Invalid or expired ID.</p>", 404
+
+    data = TEMP_URLS[uid]
+    base_url = "https://typebot.co/faq-8hhmccv"
+    query = requests.utils.requote_uri(
+        f"?guest={data['guest']}&guest_description={data['guest_description']}"
+        f"&forwho={data['forwho']}&chapters={data['chapters']}&transcript_url={data['transcript']}"
+    )
+    iframe_url = f"{base_url}{query}"
 
     html = f"""
     <html>
       <head><title>Typebot Loader</title></head>
       <body style="margin:0;padding:0;overflow:hidden;">
-        <iframe src="{long_url}" width="100%" height="100%" style="border:none;" allow="clipboard-read; clipboard-write"></iframe>
+        <iframe src="{iframe_url}" width="100%" height="100%" style="border:none;" allow="clipboard-read; clipboard-write"></iframe>
       </body>
     </html>
     """
     return render_template_string(html)
+
 
 
 if __name__ == "__main__":
