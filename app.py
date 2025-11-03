@@ -54,7 +54,9 @@ def filter_image():
                 subprocess.run([
                     "magick", inp.name,
                     "-colorspace", "Gray",
-                    "-brightness-contrast", "-5x15",  # iets minder helder, meer contrast
+                    "-fill", "#B5BDC8", "-colorize", "10%",   # voeg lichte koelgrijze tint toe
+                    "-brightness-contrast", "3x5",            # iets lichter en minder contrast
+                    "-gamma", "1.08",                         # tilt middentonen op (maakt huid en muren lichter)
                     out.name
                 ], check=True)
         else:
