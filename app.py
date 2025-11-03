@@ -11,10 +11,10 @@ TEMP_URLS = {}
 # Filter definitions
 FILTERS = {
  "dark": {
-    "color": "#939BA9",   # lichter grijsblauw, realistischer huidtinten
-    "strength": "30%",    # subtieler effect, minder saturatie
-    "opacity": "30",      # zachtere blend om overdonker te voorkomen
-    "mode": "Multiply"    # behoudt filmische diepte maar niet te zwaar
+    "color": "#A3B1BE",   # iets lichter grijsblauw
+    "strength": "25%",    # subtielere tint
+    "opacity": "25",      # zachtere multiply
+    "mode": "Multiply"    # behoudt diepte zonder te donker te worden
 },
     "grey":   {"color": None,      "strength": None,  "opacity": None, "mode": None},
     "red":    {"color": "#FF4076", "strength": "51%", "opacity": "62", "mode": "Multiply"},
