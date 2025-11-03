@@ -10,12 +10,7 @@ TEMP_URLS = {}
 
 # Filter definitions
 FILTERS = {
- "dark": {
-    "color": "#A3B1BE",   # iets lichter grijsblauw
-    "strength": "25%",    # subtielere tint
-    "opacity": "25",      # zachtere multiply
-    "mode": "Multiply"    # behoudt diepte zonder te donker te worden
-},
+    "dark":   {"color": None,      "strength": None,  "opacity": None, "mode": None},
     "grey":   {"color": None,      "strength": None,  "opacity": None, "mode": None},
     "red":    {"color": "#FF4076", "strength": "51%", "opacity": "62", "mode": "Multiply"},
     "purple": {"color": "#935EB2", "strength": "57%", "opacity": "43", "mode": "Multiply"}
@@ -51,8 +46,17 @@ def filter_image():
             for chunk in r.iter_content(chunk_size=8192):
                 f_out.write(chunk)
 
-        if style == "grey":
-            subprocess.run(["magick", inp.name, "-colorspace", "Gray", out.name], check=True)
+        if style in ["grey", "dark"]:
+            # Maak 'dark' iets donkerder dan 'grey'
+            if style == "grey":
+                subprocess.run(["magick", inp.name, "-colorspace", "Gray", out.name], check=True)
+            else:
+                subprocess.run([
+                    "magick", inp.name,
+                    "-colorspace", "Gray",
+                    "-brightness-contrast", "-5x15",  # iets minder helder, meer contrast
+                    out.name
+                ], check=True)
         else:
             # Step 1: grayscale + colorize
             subprocess.run([
@@ -66,6 +70,7 @@ def filter_image():
                 "-define", f"compose:args={f['opacity']},100",
                 "-composite", out.name
             ], check=True)
+
 
         # Step 3: overlay frame only for 'red'
         if style == "red":
